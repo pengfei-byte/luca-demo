@@ -9,8 +9,13 @@ const VOICE_REF_URL = (process.env.VOICE_REF_URL || "").trim();
 const MAX_CONCURRENT = Number(process.env.MAX_CONCURRENT_SESSIONS || 3);
 
 export const MAX_CALL_MS = 300_000;
+export const CREATE_TIMEOUT_MS = 15_000;
 const LEASE_MS = 25_000;
 const BUSY_RETRY_MS = 5_000;
+
+function createTimeoutMs() {
+  return Number(process.env.POPVID_CREATE_TIMEOUT_MS || CREATE_TIMEOUT_MS);
+}
 
 const calls = new Map();
 let pending = 0;
@@ -53,13 +58,20 @@ export function buildSessionBody({ messages, seedImageUrl, voiceRefUrl }) {
 }
 
 async function postConnection(body) {
-  const res = await fetch(`${BASE}/connections`, {
-    method: "POST",
-    headers: authHeaders(),
-    body: JSON.stringify(body),
-  });
-  const data = await res.json().catch(() => ({}));
-  return { ok: res.ok, status: res.status, data };
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), createTimeoutMs());
+  try {
+    const res = await fetch(`${BASE}/connections`, {
+      method: "POST",
+      headers: authHeaders(),
+      body: JSON.stringify(body),
+      signal: controller.signal,
+    });
+    const data = await res.json().catch(() => ({}));
+    return { ok: res.ok, status: res.status, data };
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 export async function createCall({ messages, req }) {

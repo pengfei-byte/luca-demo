@@ -70,7 +70,16 @@ export default function App() {
     const value = text.trim();
     if (!value) return;
     if (detectCrisis(value)) {
-      append(makeMessage("user", value, { kind: "notice" }), makeMessage("him", CRISIS_REPLY, { kind: "notice" }));
+      const s = stateRef.current;
+      commit({
+        ...s,
+        quickReplies: [],
+        messages: [
+          ...s.messages,
+          makeMessage("user", value, { kind: "notice" }),
+          makeMessage("him", CRISIS_REPLY, { kind: "notice" }),
+        ],
+      });
       return;
     }
     append(makeMessage("user", value));
@@ -109,7 +118,12 @@ export default function App() {
       return;
     }
     if (reason === "crisis") {
-      append(makeMessage("him", CRISIS_REPLY, { kind: "notice" }));
+      const s = stateRef.current;
+      commit({
+        ...s,
+        quickReplies: [],
+        messages: [...s.messages, makeMessage("him", CRISIS_REPLY, { kind: "notice" })],
+      });
       return;
     }
     append(makeMessage("him", `Video call · ${formatDuration(durationMs)}`, { kind: "call", durationMs }));

@@ -179,3 +179,58 @@ test("sweep retries a failed close and enforces the call age limit", async (t) =
   assert.equal(limitDeletes, 1);
   assert.equal(activeCalls(), 0);
 });
+
+test("aborts a hung create and releases the pending slot", async (t) => {
+  const originalFetch = globalThis.fetch;
+  const originalError = console.error;
+  const previousTimeout = process.env.POPVID_CREATE_TIMEOUT_MS;
+  process.env.POPVID_CREATE_TIMEOUT_MS = "80";
+  console.error = () => {};
+  t.after(() => {
+    globalThis.fetch = originalFetch;
+    console.error = originalError;
+    if (previousTimeout === undefined) delete process.env.POPVID_CREATE_TIMEOUT_MS;
+    else process.env.POPVID_CREATE_TIMEOUT_MS = previousTimeout;
+  });
+
+  let attempts = 0;
+  globalThis.fetch = (_url, init) =>
+    new Promise((_resolve, reject) => {
+      attempts += 1;
+      const signal = init?.signal;
+      const abort = () => {
+        const error = new Error("The operation was aborted");
+        error.name = "AbortError";
+        reject(error);
+      };
+      if (signal?.aborted) {
+        abort();
+        return;
+      }
+      signal?.addEventListener("abort", abort, { once: true });
+    });
+
+  const started = Date.now();
+  const hung = await createCall({ messages: [], req: {} });
+  const elapsed = Date.now() - started;
+  assert.equal(hung.ok, false);
+  assert.equal(hung.status, 502);
+  assert.equal(hung.error.code, "upstream_unreachable");
+  assert.equal(attempts, 1);
+  assert.ok(elapsed < 1_000, `timed out in ${elapsed}ms`);
+  assert.equal(activeCalls(), 0);
+
+  globalThis.fetch = async () => sessionResponse("sess_after_timeout_a");
+  const first = await createCall({ messages: [], req: {} });
+  globalThis.fetch = async () => sessionResponse("sess_after_timeout_b");
+  const second = await createCall({ messages: [], req: {} });
+  assert.equal(first.ok, true);
+  assert.equal(second.ok, true);
+  assert.notEqual(first.error?.code, "busy");
+  assert.notEqual(second.error?.code, "busy");
+
+  globalThis.fetch = async () => new Response(null, { status: 200 });
+  await closeCall(first.data.session.session_id);
+  await closeCall(second.data.session.session_id);
+  assert.equal(activeCalls(), 0);
+});
