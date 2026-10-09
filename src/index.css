@@ -50,7 +50,8 @@ a { color: var(--gold); }
 .bubble { max-width: 78%; padding: 10px 14px; border-radius: 18px; line-height: 1.4; font-size: 15px; white-space: pre-wrap; animation: rise 0.25s ease-out; }
 .bubble.him { align-self: flex-start; background: var(--panel); border-bottom-left-radius: 6px; }
 .bubble.me { align-self: flex-end; background: var(--wine); border-bottom-right-radius: 6px; }
-.bubble.notice { background: transparent; border: 1px solid var(--line); color: var(--muted); font-size: 14px; }
+.bubble.notice { background: var(--panel); border: 1px solid rgba(201, 164, 106, 0.35); color: var(--text); font-size: 14px; }
+.bubble.me.notice { background: var(--wine); border-color: transparent; }
 .resend { display: block; margin-top: 6px; color: var(--gold); font-size: 13px; padding: 0; }
 .call-record { align-self: center; color: var(--muted); font-size: 12px; letter-spacing: 0.06em; padding: 6px 12px; border: 1px solid var(--line); border-radius: 999px; }
 .typing { display: flex; gap: 4px; padding: 14px; }
