@@ -1,64 +1,51 @@
-function explain(err, data, status) {
-  if (data?.error) {
-    const e = data.error;
-    const wrapped = new Error(e.message || "Request failed");
-    wrapped.code = e.code;
-    wrapped.retryAfter = e.retry_after_ms;
-    wrapped.payload = data;
-    return wrapped;
-  }
-  if (err?.name === "TypeError" || /failed to fetch/i.test(err?.message || "")) {
-    return new Error("The local server is not running. Start npm run dev, then refresh.");
-  }
-  return new Error(err?.message || `Request failed${status ? ` (${status})` : ""}`);
-}
+const SEND_LIMIT = 60;
+const OFFLINE_REPLY = { reply: "Give me a second.", call: false, quickReplies: [], retryable: true };
 
-async function request(url, options) {
-  let res;
-  try {
-    res = await fetch(url, {
-      headers: { "Content-Type": "application/json", ...(options?.headers || {}) },
-      ...options,
-    });
-  } catch (err) {
-    throw explain(err);
-  }
+async function post(url, body) {
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body || {}),
+  });
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw explain(null, data, res.status);
-  return data;
+  return { ok: res.ok, status: res.status, data };
 }
 
-export function fetchHealth() {
-  return request("/api/health");
+export async function fetchPersona() {
+  const res = await fetch("/api/persona");
+  if (!res.ok) throw new Error(`persona ${res.status}`);
+  return res.json();
 }
 
-export function fetchMatch() {
-  return request("/api/match");
-}
-
-export async function startBroadcast(body) {
-  let res;
+export async function sendChat({ messages, calledOnce, event, durationMs }) {
   try {
-    res = await fetch("/api/broadcast", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body || {}),
+    const { ok, data } = await post("/api/chat", {
+      messages: messages.slice(-SEND_LIMIT),
+      calledOnce,
+      event,
+      durationMs,
     });
-  } catch (err) {
-    throw explain(err);
+    if (ok && typeof data.reply === "string") return data;
+  } catch {
+    /* network failure falls through */
   }
-  const data = await res.json().catch(() => ({}));
-  if (data?.match || data?.briefing) return data;
-  if (!res.ok) throw explain(null, data, res.status);
-  return data;
+  return OFFLINE_REPLY;
 }
 
-export function closeSession(sessionId) {
-  if (!sessionId) return Promise.resolve();
-  return fetch(`/api/sessions/${sessionId}/close`, { method: "POST" }).catch(() => {});
+export async function startCall(messages) {
+  try {
+    return await post("/api/call", { messages: messages.slice(-SEND_LIMIT) });
+  } catch {
+    return { ok: false, status: 0, data: { error: { code: "network" } } };
+  }
 }
 
-export function heartbeat(sessionId) {
+export function heartbeatCall(sessionId) {
   if (!sessionId) return Promise.resolve();
-  return fetch(`/api/sessions/${sessionId}/heartbeat`, { method: "POST" }).catch(() => {});
+  return fetch(`/api/calls/${sessionId}/heartbeat`, { method: "POST" }).catch(() => {});
+}
+
+export function endCall(sessionId) {
+  if (!sessionId) return Promise.resolve();
+  return fetch(`/api/calls/${sessionId}`, { method: "DELETE", keepalive: true }).catch(() => {});
 }
