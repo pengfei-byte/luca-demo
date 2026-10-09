@@ -132,6 +132,10 @@ export default function Call({ persona, messages, onLine, onEnd }) {
     const tick = setInterval(() => {
       const ms = Math.max(Date.now() - startedAtRef.current, billedRef.current);
       setElapsed(ms);
+      if (ms >= MAX_CALL_MS) {
+        finish("time_up");
+        return;
+      }
       if (MAX_CALL_MS - ms <= GOODBYE_MS && !goodbyeRef.current) {
         goodbyeRef.current = true;
         clientRef.current?.say(GOODBYE_LINE);
