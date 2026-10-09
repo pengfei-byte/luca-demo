@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: pitchside
+    name: luca
     runtime: node
     plan: free
     buildCommand: npm ci && npm run build
@@ -15,5 +15,9 @@ services:
         sync: false
       - key: POPVID_BASE_URL
         value: https://popvid.ai/api/public/v1
+      - key: DEEPSEEK_API_KEY
+        sync: false
+      - key: DEEPSEEK_MODEL
+        value: deepseek-chat
       - key: MAX_CONCURRENT_SESSIONS
         value: "3"
