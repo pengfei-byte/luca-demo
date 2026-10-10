@@ -84,7 +84,13 @@ test("retries once, then falls back", async (t) => {
   const { impl, calls } = fakeFetch([new Error("boom"), new Error("boom again")]);
   const result = await generateReply({ messages: turns(1), fetchImpl: impl, env });
   assert.equal(calls.length, 2);
-  assert.deepEqual(result, { reply: FALLBACK_REPLY, call: false, quickReplies: [], retryable: true });
+  assert.deepEqual(result, {
+    reply: FALLBACK_REPLY,
+    call: false,
+    quickReplies: [],
+    retryable: true,
+    upstream: "boom again",
+  });
 });
 
 test("succeeds on the retry", async (t) => {

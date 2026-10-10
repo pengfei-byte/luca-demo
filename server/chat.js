@@ -51,6 +51,11 @@ export function decideCall({ modelWantsCall, userTurns, calledOnce, event }) {
   return Boolean(modelWantsCall) || userTurns >= FORCE_CALL_AT;
 }
 
+function failureDetail(err) {
+  const cause = err?.cause?.code || err?.cause?.message || "";
+  return [err?.message, cause].filter(Boolean).join(" · ").slice(0, 180);
+}
+
 async function requestCompletion({ body, apiKey, baseUrl, fetchImpl, timeoutMs }) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -61,7 +66,10 @@ async function requestCompletion({ body, apiKey, baseUrl, fetchImpl, timeoutMs }
       body: JSON.stringify(body),
       signal: controller.signal,
     });
-    if (!res.ok) throw new Error(`DeepSeek responded ${res.status}`);
+    if (!res.ok) {
+      const detail = await res.text().catch(() => "");
+      throw new Error(`DeepSeek responded ${res.status} ${detail.slice(0, 120)}`);
+    }
     const data = await res.json();
     return data?.choices?.[0]?.message?.content ?? "";
   } finally {
@@ -78,7 +86,7 @@ export async function generateReply({
   env = process.env,
   timeoutMs = CHAT_TIMEOUT_MS,
 }) {
-  const apiKey = env.DEEPSEEK_API_KEY;
+  const apiKey = String(env.DEEPSEEK_API_KEY || "").trim();
   if (!apiKey) return fallback();
 
   const baseUrl = (env.DEEPSEEK_BASE_URL || "https://api.deepseek.com").replace(/\/$/, "");
@@ -95,14 +103,16 @@ export async function generateReply({
   };
 
   let raw = null;
+  let upstream = "";
   for (let attempt = 0; attempt < 2 && raw === null; attempt += 1) {
     try {
       raw = await requestCompletion({ body, apiKey, baseUrl, fetchImpl, timeoutMs });
     } catch (err) {
-      console.warn("[chat] DeepSeek attempt failed:", err.message);
+      upstream = failureDetail(err);
+      console.warn("[chat] DeepSeek attempt failed:", upstream);
     }
   }
-  if (raw === null) return fallback();
+  if (raw === null) return { ...fallback(), upstream };
 
   const parsed = parseModelOutput(raw);
   if (parsed.retryable) return parsed;
