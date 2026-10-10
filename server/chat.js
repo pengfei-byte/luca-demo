@@ -4,7 +4,7 @@ import { toChatMessages } from "./history.js";
 
 export const FORCE_CALL_AT = 6;
 export const CHAT_HISTORY_LIMIT = 30;
-export const CHAT_TIMEOUT_MS = 8000;
+export const CHAT_TIMEOUT_MS = 18_000;
 export const FALLBACK_REPLY = "Give me a second.";
 
 const fallback = () => ({ reply: FALLBACK_REPLY, call: false, quickReplies: [], retryable: true });
@@ -71,7 +71,9 @@ async function requestCompletion({ body, apiKey, baseUrl, fetchImpl, timeoutMs }
       throw new Error(`DeepSeek responded ${res.status} ${detail.slice(0, 120)}`);
     }
     const data = await res.json();
-    return data?.choices?.[0]?.message?.content ?? "";
+    const content = data?.choices?.[0]?.message?.content ?? "";
+    if (!String(content).trim()) throw new Error("DeepSeek returned an empty reply");
+    return content;
   } finally {
     clearTimeout(timer);
   }
@@ -98,6 +100,7 @@ export async function generateReply({
     model: env.DEEPSEEK_MODEL || "deepseek-chat",
     messages: [{ role: "system", content: chatSystemPrompt() }, ...chat],
     response_format: { type: "json_object" },
+    thinking: { type: "disabled" },
     temperature: 1.1,
     max_tokens: 300,
   };

@@ -55,6 +55,7 @@ test("sends the system prompt, history and JSON mode to DeepSeek", async () => {
   assert.equal(calls[0].headers.Authorization, "Bearer test-key");
   assert.equal(calls[0].body.model, "deepseek-chat");
   assert.deepEqual(calls[0].body.response_format, { type: "json_object" });
+  assert.deepEqual(calls[0].body.thinking, { type: "disabled" });
   assert.equal(calls[0].body.messages[0].role, "system");
   assert.deepEqual(calls[0].body.messages.at(-1), { role: "user", content: "u0" });
 });
