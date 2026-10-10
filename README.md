@@ -21,7 +21,7 @@ PopVid fetches `public/luca.jpg` as the first frame, so it needs a public HTTPS 
 
 ## Deploy
 
-Express serves the built frontend and keeps both keys. Use Render Blueprint with `render.yaml` (free web service, health check `/api/health`). Set `POPVID_API_KEY` and `DEEPSEEK_API_KEY` in the Render dashboard only, never in Git.
+Express serves the built frontend and keeps both keys. This demo lives in its own repo and Render service (`luca-demo`), not WIRE 24 or Pitchside. Use Render Blueprint with `render.yaml` (free web service, health check `/api/health`). Set `POPVID_API_KEY` and `DEEPSEEK_API_KEY` in the Render dashboard only, never in Git.
 
 ## Safety
 
