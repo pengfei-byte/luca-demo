@@ -4,7 +4,7 @@ import Chat from "./components/Chat.jsx";
 import IncomingCall from "./components/IncomingCall.jsx";
 import Call from "./components/Call.jsx";
 import { fetchPersona, sendChat } from "./lib/api.js";
-import { initialState, loadState, makeMessage, saveState } from "./lib/store.js";
+import { freshConversation, initialState, loadState, makeMessage, saveState } from "./lib/store.js";
 import { CRISIS_REPLY, detectCrisis } from "../server/safety.js";
 import { formatDuration } from "../server/format.js";
 
@@ -16,6 +16,7 @@ export default function App() {
   const [view, setView] = useState("chat");
   const [typing, setTyping] = useState(false);
   const stateRef = useRef(null);
+  const chatGen = useRef(0);
 
   useEffect(() => {
     fetchPersona()
@@ -43,9 +44,11 @@ export default function App() {
   }
 
   async function askHim(extra = {}) {
+    const gen = ++chatGen.current;
     setTyping(true);
     const before = stateRef.current;
     const res = await sendChat({ messages: before.messages, calledOnce: before.calledOnce, ...extra });
+    if (gen !== chatGen.current) return;
     setTyping(false);
 
     let fields = {};
@@ -97,6 +100,13 @@ export default function App() {
     commit({ ...stateRef.current, gatePassed: true });
   }
 
+  function resetChat() {
+    chatGen.current += 1;
+    setTyping(false);
+    setView("chat");
+    commit(freshConversation(persona));
+  }
+
   function callNow() {
     commit({ ...stateRef.current, calledOnce: true });
     setView("call");
@@ -146,6 +156,7 @@ export default function App() {
         onSend={sendText}
         onCall={callNow}
         onResend={resend}
+        onReset={resetChat}
       />
       {view === "incoming" && <IncomingCall persona={persona} onAnswer={() => setView("call")} onDecline={decline} />}
       {view === "call" && <Call persona={persona} messages={state.messages} onLine={onLine} onEnd={onEnd} />}

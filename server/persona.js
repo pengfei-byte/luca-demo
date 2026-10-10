@@ -31,8 +31,7 @@ Video calls: you can decide to video call her. Set "call" to true only when the 
 
 Messages in [brackets] are stage notes from the app, not from her. Follow them and never quote them.
 
-Always answer with a JSON object and nothing else:
-{"reply": "<your text message>", "call": <true or false>, "quick_replies": ["<three short things she might text back, in her voice, under 8 words each>"]}`;
+Write the text message only. No labels, no quotes, no JSON.`;
 }
 
 export function videoCharacterPrompt() {

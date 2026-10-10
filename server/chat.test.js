@@ -46,7 +46,7 @@ test("call decision rules", () => {
   assert.equal(decideCall({ modelWantsCall: true, userTurns: 3, calledOnce: false, event: "call_ended" }), false);
 });
 
-test("sends the system prompt, history and JSON mode to DeepSeek", async () => {
+test("sends the system prompt and history without JSON mode", async () => {
   const { impl, calls } = fakeFetch(['{"reply":"Careful.","call":false,"quick_replies":["x"]}']);
   const result = await generateReply({ messages: turns(1), fetchImpl: impl, env });
   assert.deepEqual(result, { reply: "Careful.", call: false, quickReplies: ["x"] });
@@ -54,10 +54,35 @@ test("sends the system prompt, history and JSON mode to DeepSeek", async () => {
   assert.equal(calls[0].url, "https://api.deepseek.com/chat/completions");
   assert.equal(calls[0].headers.Authorization, "Bearer test-key");
   assert.equal(calls[0].body.model, "deepseek-chat");
-  assert.deepEqual(calls[0].body.response_format, { type: "json_object" });
+  assert.equal(calls[0].body.response_format, undefined);
   assert.deepEqual(calls[0].body.thinking, { type: "disabled" });
   assert.equal(calls[0].body.messages[0].role, "system");
   assert.deepEqual(calls[0].body.messages.at(-1), { role: "user", content: "u0" });
+});
+
+test("fills chips from a short JSON follow-up when the reply is plain text", async () => {
+  const { impl, calls } = fakeFetch([
+    "Does it matter?",
+    '{"call":false,"quick_replies":["Why me?","That is not an answer","Fine"]}',
+  ]);
+  const result = await generateReply({ messages: turns(1), fetchImpl: impl, env });
+  assert.equal(result.reply, "Does it matter?");
+  assert.deepEqual(result.quickReplies, ["Why me?", "That is not an answer", "Fine"]);
+  assert.equal(result.call, false);
+  assert.equal(calls.length, 2);
+  assert.equal(calls[0].body.response_format, undefined);
+  assert.deepEqual(calls[1].body.response_format, { type: "json_object" });
+  assert.deepEqual(calls[1].body.thinking, { type: "disabled" });
+  assert.ok(calls[1].body.messages[0].content.length < 500);
+});
+
+test("still returns the reply when the chip follow-up fails", async (t) => {
+  t.mock.method(console, "warn", () => {});
+  const { impl } = fakeFetch(["Does it matter?", new Error("chips down")]);
+  const result = await generateReply({ messages: turns(1), fetchImpl: impl, env });
+  assert.equal(result.reply, "Does it matter?");
+  assert.deepEqual(result.quickReplies, []);
+  assert.equal(result.retryable, undefined);
 });
 
 test("forces the call on the sixth user message", async () => {

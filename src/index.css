@@ -45,7 +45,14 @@ a { color: var(--gold); }
 .chat-who { flex: 1; display: flex; flex-direction: column; }
 .chat-who strong { font-family: var(--serif); font-size: 22px; font-weight: 600; line-height: 1; }
 .chat-who span { color: var(--muted); font-size: 12px; margin-top: 3px; }
-.chat-call { width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; color: var(--gold); background: var(--panel); }
+.chat-call, .chat-more { width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; color: var(--gold); background: var(--panel); }
+.chat-menu { position: relative; }
+.chat-more { color: var(--muted); }
+.chat-sheet { position: absolute; top: calc(100% + 8px); right: 0; z-index: 5; min-width: 196px; padding: 6px; border: 1px solid var(--line); border-radius: 14px; background: #1b191d; box-shadow: 0 12px 32px rgba(0,0,0,0.45); }
+.chat-sheet button, .chat-sheet p { display: block; width: 100%; margin: 0; padding: 10px 12px; border-radius: 10px; text-align: left; font-size: 14px; }
+.chat-sheet button:hover { background: rgba(255,255,255,0.06); }
+.chat-sheet p { color: var(--muted); font-size: 13px; }
+.chat-sheet .is-danger { color: #e7b4b4; }
 .chat-log { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 8px; }
 .bubble { max-width: 78%; padding: 10px 14px; border-radius: 18px; line-height: 1.4; font-size: 15px; white-space: pre-wrap; animation: rise 0.25s ease-out; }
 .bubble.him { align-self: flex-start; background: var(--panel); border-bottom-left-radius: 6px; }

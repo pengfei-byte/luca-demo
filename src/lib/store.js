@@ -13,6 +13,10 @@ export function initialState(persona) {
   };
 }
 
+export function freshConversation(persona) {
+  return { ...initialState(persona), gatePassed: true };
+}
+
 export function loadState() {
   try {
     const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));

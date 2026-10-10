@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { initialState, makeMessage } from "./store.js";
+import { freshConversation, initialState, makeMessage } from "./store.js";
 
 const persona = { opener: "You left before I could ask your name. I found it anyway.", quickReplies: ["a", "b", "c"] };
 
@@ -26,5 +26,14 @@ test("initial state opens with his message", () => {
   assert.deepEqual(s.quickReplies, ["a", "b", "c"]);
   assert.equal(s.messages.length, 1);
   assert.equal(s.messages[0].role, "him");
+  assert.equal(s.messages[0].text, persona.opener);
+});
+
+test("fresh conversation keeps the gate and drops the old thread", () => {
+  const s = freshConversation(persona);
+  assert.equal(s.gatePassed, true);
+  assert.equal(s.calledOnce, false);
+  assert.deepEqual(s.quickReplies, ["a", "b", "c"]);
+  assert.equal(s.messages.length, 1);
   assert.equal(s.messages[0].text, persona.opener);
 });

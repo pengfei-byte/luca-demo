@@ -18,11 +18,10 @@ test("both prompt families carry the content limits", () => {
   }
 });
 
-test("chat prompt asks for the JSON contract", () => {
+test("chat prompt asks for a plain text message", () => {
   const prompt = chatSystemPrompt();
-  assert.match(prompt, /"reply"/);
-  assert.match(prompt, /"call"/);
-  assert.match(prompt, /"quick_replies"/);
+  assert.match(prompt, /text message only/i);
+  assert.match(prompt, /no JSON/i);
 });
 
 test("video prompts fit PopVid's 4000 character limit", () => {

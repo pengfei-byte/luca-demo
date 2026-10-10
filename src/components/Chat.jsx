@@ -8,8 +8,19 @@ function CameraIcon() {
   );
 }
 
-export default function Chat({ persona, messages, quickReplies, typing, onSend, onCall, onResend }) {
+function MoreIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+      <circle cx="5" cy="12" r="1.7" fill="currentColor" />
+      <circle cx="12" cy="12" r="1.7" fill="currentColor" />
+      <circle cx="19" cy="12" r="1.7" fill="currentColor" />
+    </svg>
+  );
+}
+
+export default function Chat({ persona, messages, quickReplies, typing, onSend, onCall, onResend, onReset }) {
   const [draft, setDraft] = useState("");
+  const [menu, setMenu] = useState(null);
   const endRef = useRef(null);
 
   useEffect(() => {
@@ -29,6 +40,43 @@ export default function Chat({ persona, messages, quickReplies, typing, onSend, 
         <div className="chat-who">
           <strong>{persona.shortName}</strong>
           <span>{typing ? "typing…" : "online"}</span>
+        </div>
+        <div className="chat-menu">
+          <button
+            type="button"
+            className="chat-more"
+            aria-label="More"
+            aria-expanded={menu !== null}
+            onClick={() => setMenu((open) => (open ? null : "main"))}
+          >
+            <MoreIcon />
+          </button>
+          {menu && (
+            <div className="chat-sheet" role="menu">
+              {menu === "main" ? (
+                <button type="button" role="menuitem" onClick={() => setMenu("reset")}>
+                  Reset conversation
+                </button>
+              ) : (
+                <>
+                  <p>Clear this chat?</p>
+                  <button
+                    type="button"
+                    className="is-danger"
+                    onClick={() => {
+                      setMenu(null);
+                      onReset();
+                    }}
+                  >
+                    Clear
+                  </button>
+                  <button type="button" onClick={() => setMenu("main")}>
+                    Cancel
+                  </button>
+                </>
+              )}
+            </div>
+          )}
         </div>
         <button type="button" className="chat-call" onClick={onCall} aria-label={`Video call ${persona.shortName}`}>
           <CameraIcon />

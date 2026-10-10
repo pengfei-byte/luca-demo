@@ -56,6 +56,25 @@ function failureDetail(err) {
   return [err?.message, cause].filter(Boolean).join(" · ").slice(0, 180);
 }
 
+const CHIP_TIMEOUT_MS = 8_000;
+
+function parseChips(raw) {
+  let data = null;
+  try {
+    data = JSON.parse(String(raw ?? "").trim());
+  } catch {
+    return null;
+  }
+  if (!data || typeof data !== "object") return null;
+  const quickReplies = Array.isArray(data.quick_replies)
+    ? data.quick_replies
+        .filter((q) => typeof q === "string" && q.trim())
+        .map((q) => q.trim())
+        .slice(0, 3)
+    : [];
+  return { call: data.call === true, quickReplies };
+}
+
 async function requestCompletion({ body, apiKey, baseUrl, fetchImpl, timeoutMs }) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -96,10 +115,12 @@ export async function generateReply({
   const note = stageNote(event, durationMs);
   if (note) chat.push({ role: "user", content: note });
 
+  const model = env.DEEPSEEK_MODEL || "deepseek-chat";
+  // JSON mode with this persona prompt returns whitespace on deepseek-flash.
+  // Ask for the text itself, then a short follow-up for chips.
   const body = {
-    model: env.DEEPSEEK_MODEL || "deepseek-chat",
+    model,
     messages: [{ role: "system", content: chatSystemPrompt() }, ...chat],
-    response_format: { type: "json_object" },
     thinking: { type: "disabled" },
     temperature: 1.1,
     max_tokens: 300,
@@ -119,8 +140,43 @@ export async function generateReply({
 
   const parsed = parseModelOutput(raw);
   if (parsed.retryable) return parsed;
+
+  let modelWantsCall = parsed.call;
+  let { quickReplies } = parsed;
+  if (quickReplies.length === 0 && !String(raw).trim().startsWith("{")) {
+    try {
+      const chipRaw = await requestCompletion({
+        body: {
+          model,
+          messages: [
+            {
+              role: "system",
+              content:
+                'Return json only: {"call":false,"quick_replies":["...","...","..."]}. The user message is his text to her. Set call to true only if he is asking her to pick up a video call right now. quick_replies are three things she might text back, in her voice, under 8 words each.',
+            },
+            { role: "user", content: parsed.reply },
+          ],
+          response_format: { type: "json_object" },
+          thinking: { type: "disabled" },
+          temperature: 0.4,
+          max_tokens: 120,
+        },
+        apiKey,
+        baseUrl,
+        fetchImpl,
+        timeoutMs: Math.min(timeoutMs, CHIP_TIMEOUT_MS),
+      });
+      const chips = parseChips(chipRaw);
+      if (chips?.quickReplies.length) quickReplies = chips.quickReplies;
+      if (chips?.call) modelWantsCall = true;
+    } catch (err) {
+      console.warn("[chat] chip follow-up failed:", failureDetail(err));
+    }
+  }
+
   return {
-    ...parsed,
-    call: decideCall({ modelWantsCall: parsed.call, userTurns: countUserTurns(messages), calledOnce, event }),
+    reply: parsed.reply,
+    quickReplies,
+    call: decideCall({ modelWantsCall, userTurns: countUserTurns(messages), calledOnce, event }),
   };
 }
