@@ -17,6 +17,68 @@ export async function fetchPersona() {
   return res.json();
 }
 
+async function getJson(url) {
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`${url} ${res.status}`);
+  return res.json();
+}
+
+export function fetchRelationship() {
+  return getJson("/api/relationship");
+}
+
+export function fetchProfile() {
+  return getJson("/api/luca/profile");
+}
+
+export async function openChapter(chapterId) {
+  const { ok, status, data } = await post("/api/story/open", { chapterId });
+  if (!ok) throw new Error(data.error || status);
+  return data;
+}
+
+export async function patchPreferences(patch) {
+  const res = await fetch("/api/relationship/preferences", {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(patch),
+  });
+  if (!res.ok) throw new Error("preferences");
+  return res.json();
+}
+
+export async function defineRelationship(definition) {
+  const { ok, data } = await post("/api/relationship/definition", { definition });
+  if (!ok) throw new Error(data.error || "definition");
+  return data;
+}
+
+export async function forgetMemory(memoryId) {
+  const res = await fetch(`/api/relationship/memories/${encodeURIComponent(memoryId)}`, { method: "DELETE" });
+  if (!res.ok) throw new Error("memory");
+  return res.json();
+}
+
+export async function resetRelationship() {
+  const { ok, data } = await post("/api/relationship/reset", { confirm: true });
+  if (!ok) throw new Error("reset");
+  return data;
+}
+
+export function declineInvite() {
+  return post("/api/relationship/decline", {}).catch(() => {});
+}
+
+export async function authorizeLine(body) {
+  try {
+    const { ok, data } = await post("/api/call/line", body);
+    if (!ok || !data?.line) return { blocked: true, line: "" };
+    return data;
+  } catch {
+    return { blocked: true, line: "" };
+  }
+}
+
 export async function sendChat({ messages, calledOnce, event, durationMs }) {
   try {
     const { ok, data } = await post("/api/chat", {

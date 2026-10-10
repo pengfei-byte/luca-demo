@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import Gate from "./components/Gate.jsx";
 import Chat from "./components/Chat.jsx";
+import Profile from "./components/Profile.jsx";
 import IncomingCall from "./components/IncomingCall.jsx";
 import Call from "./components/Call.jsx";
-import { fetchPersona, sendChat } from "./lib/api.js";
+import { authorizeLine, declineInvite, defineRelationship, fetchPersona, fetchProfile, fetchRelationship, forgetMemory, openChapter, patchPreferences, resetRelationship, sendChat } from "./lib/api.js";
 import { freshConversation, initialState, loadState, makeMessage, saveState } from "./lib/store.js";
 import { CRISIS_REPLY, detectCrisis } from "../server/safety.js";
 import { formatDuration } from "../server/format.js";
@@ -13,6 +14,8 @@ const RING_DELAY_MS = 1200;
 export default function App() {
   const [persona, setPersona] = useState(null);
   const [state, setState] = useState(null);
+  const [bond, setBond] = useState(null);
+  const [profile, setProfile] = useState(null);
   const [view, setView] = useState("chat");
   const [typing, setTyping] = useState(false);
   const stateRef = useRef(null);
@@ -20,11 +23,27 @@ export default function App() {
 
   useEffect(() => {
     fetchPersona()
-      .then((p) => {
-        const s = loadState() || initialState(p);
+      .then(async (p) => {
+        const saved = loadState();
+        let s = saved || initialState(p);
+        if (saved && !saved.migrationSeen) {
+          s = {
+            ...saved,
+            migrationSeen: true,
+            messages: [
+              ...saved.messages,
+              makeMessage("him", "Your old messages stay on this phone. What we learn from here starts at the beginning.", { kind: "notice" }),
+            ],
+          };
+        }
         stateRef.current = s;
         setPersona(p);
         setState(s);
+        try {
+          setBond(await fetchRelationship());
+        } catch {
+          /* chat still works if the relationship service is down */
+        }
       })
       .catch(() => setPersona(false));
   }, []);
@@ -56,13 +75,16 @@ export default function App() {
     else if (res.retryable) fields = { kind: "notice", retryable: true, retryWith: extra };
 
     const s = stateRef.current;
-    const quickReplies = res.quickReplies?.length ? res.quickReplies : s.quickReplies;
-    const willCall = Boolean(res.call) && !s.calledOnce;
+    const quickReplies = res.replaceReplies ? res.quickReplies || [] : res.quickReplies?.length ? res.quickReplies : s.quickReplies;
+    if (res.progress) setBond(res.progress);
+    const willCall = Boolean(res.call);
+    const him = makeMessage("him", res.reply, fields);
+    const incoming = res.progress?.stageChanged ? [him, makeMessage("him", "A new side of Luca is open to you.", { kind: "notice" })] : [him];
     commit({
       ...s,
       calledOnce: s.calledOnce || willCall,
       quickReplies,
-      messages: [...s.messages, makeMessage("him", res.reply, fields)],
+      messages: [...s.messages, ...incoming],
     });
     if (willCall) {
       setTimeout(() => setView((v) => (v === "chat" ? "incoming" : v)), RING_DELAY_MS);
@@ -100,11 +122,63 @@ export default function App() {
     commit({ ...stateRef.current, gatePassed: true });
   }
 
-  function resetChat() {
+  function clearChat() {
     chatGen.current += 1;
     setTyping(false);
     setView("chat");
     commit(freshConversation(persona));
+  }
+
+  async function resetChat() {
+    chatGen.current += 1;
+    setTyping(false);
+    setProfile(null);
+    setView("chat");
+    try {
+      const next = await resetRelationship();
+      setBond(next.bond);
+    } catch {
+      /* local thread still clears */
+    }
+    commit(freshConversation(persona));
+  }
+
+  async function showProfile() {
+    setView("profile");
+    try {
+      setProfile(await fetchProfile());
+    } catch {
+      setProfile(false);
+    }
+  }
+
+  async function continueChapter(chapterId) {
+    const opened = await openChapter(chapterId);
+    const s = stateRef.current;
+    const already = s.messages.at(-1)?.text === opened.hook;
+    commit({
+      ...s,
+      quickReplies: opened.choices.map((choice) => choice.label),
+      messages: already ? s.messages : [...s.messages, makeMessage("him", opened.hook)],
+    });
+    setView("chat");
+  }
+
+  async function changePreference(patch) {
+    const next = await patchPreferences(patch);
+    setBond(next);
+    setProfile((current) => (current ? { ...current, bond: next } : current));
+  }
+
+  async function chooseDefinition(definition) {
+    const next = await defineRelationship(definition);
+    setBond(next.bond);
+    setProfile(await fetchProfile());
+  }
+
+  async function dropMemory(memoryId) {
+    setProfile(await forgetMemory(memoryId));
+    setBond((await fetchProfile()).bond);
   }
 
   function callNow() {
@@ -114,6 +188,7 @@ export default function App() {
 
   function decline() {
     setView("chat");
+    declineInvite();
     askHim({ event: "call_declined" });
   }
 
@@ -145,21 +220,46 @@ export default function App() {
   }
   if (!persona || !state) return <div className="screen-center" />;
   if (!state.gatePassed) return <Gate persona={persona} onEnter={passGate} />;
+  if (view === "profile") {
+    if (profile === false) return <div className="screen-center">Couldn't open his profile. Go back and try again.</div>;
+    return (
+      <Profile
+        data={profile || null}
+        onBack={() => setView("chat")}
+        onContinue={continueChapter}
+        onForget={dropMemory}
+        onPreference={changePreference}
+        onDefine={chooseDefinition}
+      />
+    );
+  }
 
   return (
     <>
       <Chat
         persona={persona}
+        bond={bond}
         messages={state.messages}
         quickReplies={state.quickReplies}
         typing={typing}
         onSend={sendText}
         onCall={callNow}
         onResend={resend}
+        onProfile={showProfile}
+        onClear={clearChat}
         onReset={resetChat}
       />
       {view === "incoming" && <IncomingCall persona={persona} onAnswer={() => setView("call")} onDecline={decline} />}
-      {view === "call" && <Call persona={persona} messages={state.messages} onLine={onLine} onEnd={onEnd} />}
+      {view === "call" && (
+        <Call
+          persona={persona}
+          messages={state.messages}
+          actions={bond?.actions}
+          authorize={authorizeLine}
+          onLine={onLine}
+          onEnd={onEnd}
+        />
+      )}
     </>
   );
 }

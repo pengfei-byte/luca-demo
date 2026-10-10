@@ -14,7 +14,7 @@ export function initialState(persona) {
 }
 
 export function freshConversation(persona) {
-  return { ...initialState(persona), gatePassed: true };
+  return { ...initialState(persona), gatePassed: true, migrationSeen: true };
 }
 
 export function loadState() {

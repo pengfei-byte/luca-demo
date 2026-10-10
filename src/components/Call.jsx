@@ -8,11 +8,11 @@ const MAX_CALL_MS = 300_000;
 const BUSY_GIVE_UP_MS = 30_000;
 const WARN_MS = 30_000;
 const GOODBYE_MS = 20_000;
-const GOODBYE_LINE = "The user has to go in a moment.";
-const ACTIONS = [
-  { label: "smile", line: "The user smiles at you." },
-  { label: "look away", line: "The user looks away, flustered." },
-  { label: "bite your lip", line: "The user bites her lip." },
+const GOODBYE_LINE = "Story action she chose: she has to go in a moment. You cannot see her. Say a short goodbye.";
+const FALLBACK_ACTIONS = [
+  { id: "smile", label: "Smile" },
+  { id: "ask", label: "Ask a question" },
+  { id: "subject", label: "Change the subject" },
 ];
 
 function endReason(reason) {
@@ -21,7 +21,7 @@ function endReason(reason) {
   return "dropped";
 }
 
-export default function Call({ persona, messages, onLine, onEnd }) {
+export default function Call({ persona, messages, actions, onLine, onEnd, authorize }) {
   const videoRef = useRef(null);
   const clientRef = useRef(null);
   const sessionRef = useRef(null);
@@ -144,22 +144,26 @@ export default function Call({ persona, messages, onLine, onEnd }) {
     return () => clearInterval(tick);
   }, [phase]);
 
-  function send(text) {
+  async function send(text) {
     const value = text.trim();
     if (!value || phase !== "live") return;
     if (detectCrisis(value)) {
       finish("crisis");
       return;
     }
-    clientRef.current?.say(value);
-    onLineRef.current("user", value);
+    const allowed = await authorize({ text: value });
+    if (!allowed.line) return;
+    clientRef.current?.say(allowed.line);
+    onLineRef.current("user", allowed.blocked ? "Not that. Stay here." : value);
     setDraft("");
   }
 
-  function act(action) {
+  async function act(action) {
     if (phase !== "live") return;
-    clientRef.current?.say(action.line);
-    onLineRef.current("user", `*${action.label}*`);
+    const allowed = await authorize({ actionId: action.id });
+    if (!allowed.line) return;
+    clientRef.current?.say(allowed.line);
+    onLineRef.current("user", allowed.blocked ? "Not that. Stay here." : `*${action.label}*`);
   }
 
   const remaining = MAX_CALL_MS - elapsed;
@@ -200,9 +204,9 @@ export default function Call({ persona, messages, onLine, onEnd }) {
 
       <footer className="call-bottom">
         <div className="call-actions">
-          {ACTIONS.map((a) => (
-            <button key={a.label} type="button" onClick={() => act(a)} disabled={!live}>
-              *{a.label}*
+          {(actions?.length ? actions : FALLBACK_ACTIONS).map((a) => (
+            <button key={a.id} type="button" onClick={() => act(a)} disabled={!live}>
+              {a.label}
             </button>
           ))}
         </div>

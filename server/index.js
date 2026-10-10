@@ -4,16 +4,15 @@ import express from "express";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { PERSONA } from "./persona.js";
-import { generateReply } from "./chat.js";
-import { CRISIS_REPLY } from "./safety.js";
-import { sanitizeMessages } from "./messages.js";
-import { activeCalls, closeCall, createCall, renewLease, sweepCalls } from "./popvid.js";
+import { activeCalls, closeCall, renewLease, sweepCalls } from "./popvid.js";
+import { attachLuca } from "./luca-api.js";
+import { createFileStore } from "./bond-store.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
 const PORT = Number(process.env.PORT || 8787);
-const CALL_EVENTS = new Set(["call_ended", "call_declined", "call_dropped"]);
 const SESSION_ID = /^sess_[A-Za-z0-9]+$/;
+const store = createFileStore(process.env.LUCA_STORE || path.join(__dirname, "..", "data", "relationships.json"));
 
 if (!process.env.POPVID_API_KEY) console.warn("Missing POPVID_API_KEY — video calls are disabled");
 if (!process.env.DEEPSEEK_API_KEY) console.warn("Missing DEEPSEEK_API_KEY — Luca will only say the fallback line");
@@ -37,27 +36,7 @@ app.get("/api/persona", (_req, res) => {
   res.json(PERSONA);
 });
 
-app.post("/api/chat", async (req, res) => {
-  const { messages, lastUserInCrisis } = sanitizeMessages(req.body?.messages);
-  const event = CALL_EVENTS.has(req.body?.event) ? req.body.event : null;
-  if (!event && lastUserInCrisis) {
-    return res.json({ reply: CRISIS_REPLY, call: false, quickReplies: [], notice: true });
-  }
-  const result = await generateReply({
-    messages,
-    event,
-    durationMs: Number(req.body?.durationMs) || 0,
-    calledOnce: req.body?.calledOnce === true,
-  });
-  res.json(result);
-});
-
-app.post("/api/call", async (req, res) => {
-  const { messages } = sanitizeMessages(req.body?.messages);
-  const result = await createCall({ messages, req });
-  if (!result.ok) return res.status(result.status).json({ error: result.error });
-  res.status(201).json(result.data);
-});
+attachLuca(app, { store });
 
 app.post("/api/calls/:id/heartbeat", (req, res) => {
   if (!renewLease(req.params.id)) return res.status(404).json({ ok: false });

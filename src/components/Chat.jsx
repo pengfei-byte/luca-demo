@@ -18,7 +18,7 @@ function MoreIcon() {
   );
 }
 
-export default function Chat({ persona, messages, quickReplies, typing, onSend, onCall, onResend, onReset }) {
+export default function Chat({ persona, bond, messages, quickReplies, typing, onSend, onCall, onResend, onProfile, onClear, onReset }) {
   const [draft, setDraft] = useState("");
   const [menu, setMenu] = useState(null);
   const endRef = useRef(null);
@@ -36,11 +36,34 @@ export default function Chat({ persona, messages, quickReplies, typing, onSend, 
   return (
     <div className="chat">
       <header className="chat-top">
-        <img className="avatar" src={persona.photo} alt="" />
-        <div className="chat-who">
-          <strong>{persona.shortName}</strong>
-          <span>{typing ? "typing…" : "online"}</span>
-        </div>
+        <button type="button" className="chat-id" onClick={onProfile}>
+          <img className="avatar" src={persona.photo} alt="" />
+          <span className="chat-who">
+            <strong>{persona.shortName}</strong>
+            <span>{typing ? "typing…" : bond?.stageName ? `${bond.stageName} · online` : "online"}</span>
+          </span>
+        </button>
+        {typeof bond?.closeness === "number" && (
+          <button type="button" className="chat-bond" onClick={onProfile}>
+            <span className="chat-bond-label">
+              <em>Closeness</em>
+              <strong>
+                {bond.closeness}
+                <span>/100</span>
+              </strong>
+            </span>
+            <span
+              className="chat-bond-track"
+              role="progressbar"
+              aria-valuenow={bond.closeness}
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-label={`Closeness ${bond.closeness} of 100`}
+            >
+              <span style={{ width: `${Math.min(100, Math.max(0, bond.closeness))}%` }} />
+            </span>
+          </button>
+        )}
         <div className="chat-menu">
           <button
             type="button"
@@ -53,13 +76,39 @@ export default function Chat({ persona, messages, quickReplies, typing, onSend, 
           </button>
           {menu && (
             <div className="chat-sheet" role="menu">
-              {menu === "main" ? (
-                <button type="button" role="menuitem" onClick={() => setMenu("reset")}>
-                  Reset conversation
-                </button>
-              ) : (
+              {menu === "main" && (
                 <>
-                  <p>Clear this chat?</p>
+                  <button type="button" role="menuitem" onClick={onProfile}>
+                    His profile
+                  </button>
+                  <button type="button" role="menuitem" onClick={() => setMenu("clear")}>
+                    Clear this chat
+                  </button>
+                  <button type="button" role="menuitem" onClick={() => setMenu("reset")}>
+                    Start over
+                  </button>
+                </>
+              )}
+              {menu === "clear" && (
+                <>
+                  <p>Clear this chat? He keeps what he already knows.</p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMenu(null);
+                      onClear();
+                    }}
+                  >
+                    Clear chat
+                  </button>
+                  <button type="button" onClick={() => setMenu("main")}>
+                    Cancel
+                  </button>
+                </>
+              )}
+              {menu === "reset" && (
+                <>
+                  <p>Start over? This clears closeness, chapters, and secrets.</p>
                   <button
                     type="button"
                     className="is-danger"
@@ -68,7 +117,7 @@ export default function Chat({ persona, messages, quickReplies, typing, onSend, 
                       onReset();
                     }}
                   >
-                    Clear
+                    Start over
                   </button>
                   <button type="button" onClick={() => setMenu("main")}>
                     Cancel

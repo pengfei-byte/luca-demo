@@ -5,7 +5,7 @@ export default function Gate({ persona, onEnter }) {
       <div className="gate-shade" />
       <div className="gate-copy">
         <p className="gate-kicker">1 new message</p>
-        <h1>He already has your number.</h1>
+        <h1>One question, after the gala.</h1>
         <button type="button" className="gate-cta" onClick={onEnter}>
           Open his message
         </button>

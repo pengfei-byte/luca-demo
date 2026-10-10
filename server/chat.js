@@ -2,7 +2,6 @@ import { chatSystemPrompt } from "./persona.js";
 import { formatDuration } from "./format.js";
 import { toChatMessages } from "./history.js";
 
-export const FORCE_CALL_AT = 6;
 export const CHAT_HISTORY_LIMIT = 30;
 export const CHAT_TIMEOUT_MS = 18_000;
 export const FALLBACK_REPLY = "Give me a second.";
@@ -46,9 +45,29 @@ export function parseModelOutput(raw) {
   return { reply, call: data.call === true, quickReplies };
 }
 
-export function decideCall({ modelWantsCall, userTurns, calledOnce, event }) {
-  if (calledOnce || event) return false;
-  return Boolean(modelWantsCall) || userTurns >= FORCE_CALL_AT;
+export function wantsVideo(text) {
+  return /\b(see you|hear your voice|video call|call me)\b/i.test(String(text || ""));
+}
+
+export function lastUserText(messages) {
+  const list = Array.isArray(messages) ? messages : [];
+  for (let i = list.length - 1; i >= 0; i -= 1) {
+    const message = list[i];
+    if (message?.role === "user" && (message.kind ?? "text") === "text") return message.text || "";
+  }
+  return "";
+}
+
+export function decideCall({ userAsked, event }) {
+  if (event) return false;
+  return Boolean(userAsked);
+}
+
+export function filterReplies(replies, guard = []) {
+  const banned = guard.map((term) => String(term).toLowerCase()).filter(Boolean);
+  return (Array.isArray(replies) ? replies : []).filter(
+    (line) => !banned.some((term) => String(line).toLowerCase().includes(term)),
+  );
 }
 
 function failureDetail(err) {
@@ -102,7 +121,8 @@ export async function generateReply({
   messages,
   event = null,
   durationMs = 0,
-  calledOnce = false,
+  systemPrompt = null,
+  guardTerms = [],
   fetchImpl = fetch,
   env = process.env,
   timeoutMs = CHAT_TIMEOUT_MS,
@@ -120,7 +140,7 @@ export async function generateReply({
   // Ask for the text itself, then a short follow-up for chips.
   const body = {
     model,
-    messages: [{ role: "system", content: chatSystemPrompt() }, ...chat],
+    messages: [{ role: "system", content: systemPrompt || chatSystemPrompt() }, ...chat],
     thinking: { type: "disabled" },
     temperature: 1.1,
     max_tokens: 300,
@@ -141,7 +161,6 @@ export async function generateReply({
   const parsed = parseModelOutput(raw);
   if (parsed.retryable) return parsed;
 
-  let modelWantsCall = parsed.call;
   let { quickReplies } = parsed;
   if (quickReplies.length === 0 && !String(raw).trim().startsWith("{")) {
     try {
@@ -168,7 +187,6 @@ export async function generateReply({
       });
       const chips = parseChips(chipRaw);
       if (chips?.quickReplies.length) quickReplies = chips.quickReplies;
-      if (chips?.call) modelWantsCall = true;
     } catch (err) {
       console.warn("[chat] chip follow-up failed:", failureDetail(err));
     }
@@ -176,7 +194,7 @@ export async function generateReply({
 
   return {
     reply: parsed.reply,
-    quickReplies,
-    call: decideCall({ modelWantsCall, userTurns: countUserTurns(messages), calledOnce, event }),
+    quickReplies: filterReplies(quickReplies, guardTerms),
+    call: decideCall({ userAsked: wantsVideo(lastUserText(messages)), event }),
   };
 }

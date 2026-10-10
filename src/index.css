@@ -40,13 +40,22 @@ a { color: var(--gold); }
 
 /* Chat */
 .chat { height: 100dvh; display: flex; flex-direction: column; background: var(--bg); }
-.chat-top { display: flex; align-items: center; gap: 12px; padding: calc(12px + env(safe-area-inset-top)) 16px 12px; border-bottom: 1px solid var(--line); background: rgba(11,10,12,0.92); backdrop-filter: blur(12px); }
+.chat-top { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; padding: calc(12px + env(safe-area-inset-top)) 16px 12px; border-bottom: 1px solid var(--line); background: rgba(11,10,12,0.92); backdrop-filter: blur(12px); }
+.chat-bond { order: 4; flex: 1 0 100%; display: flex; flex-direction: column; gap: 6px; margin: 2px 0 0; padding: 0; text-align: left; }
+.chat-bond-label { display: flex; justify-content: space-between; align-items: baseline; }
+.chat-bond-label em { font-style: normal; letter-spacing: 0.16em; text-transform: uppercase; font-size: 11px; color: var(--gold); }
+.chat-bond-label strong { font-variant-numeric: tabular-nums; font-size: 16px; font-weight: 600; color: var(--text); }
+.chat-bond-label strong span { color: var(--muted); font-weight: 500; font-size: 13px; }
+.chat-bond-track { display: block; height: 7px; border-radius: 999px; background: rgba(232, 214, 190, 0.14); overflow: hidden; }
+.chat-bond-track > span { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--wine-hi), var(--gold)); transition: width 0.35s ease; }
 .avatar { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; object-position: center 25%; }
+.chat-id { order: 1; flex: 1; display: flex; align-items: center; gap: 12px; min-width: 0; text-align: left; padding: 0; }
 .chat-who { flex: 1; display: flex; flex-direction: column; }
 .chat-who strong { font-family: var(--serif); font-size: 22px; font-weight: 600; line-height: 1; }
 .chat-who span { color: var(--muted); font-size: 12px; margin-top: 3px; }
 .chat-call, .chat-more { width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; color: var(--gold); background: var(--panel); }
-.chat-menu { position: relative; }
+.chat-call { order: 3; }
+.chat-menu { order: 2; position: relative; }
 .chat-more { color: var(--muted); }
 .chat-sheet { position: absolute; top: calc(100% + 8px); right: 0; z-index: 5; min-width: 196px; padding: 6px; border: 1px solid var(--line); border-radius: 14px; background: #1b191d; box-shadow: 0 12px 32px rgba(0,0,0,0.45); }
 .chat-sheet button, .chat-sheet p { display: block; width: 100%; margin: 0; padding: 10px 12px; border-radius: 10px; text-align: left; font-size: 14px; }
@@ -103,12 +112,28 @@ a { color: var(--gold); }
 .call-caption { position: absolute; left: 16px; right: 16px; bottom: calc(150px + env(safe-area-inset-bottom)); margin: 0; text-align: center; font-size: 17px; line-height: 1.4; text-shadow: 0 1px 8px rgba(0,0,0,0.9); animation: rise 0.25s ease-out; }
 .call-bottom { position: absolute; left: 0; right: 0; bottom: 0; padding: 24px 12px calc(14px + env(safe-area-inset-bottom)); background: linear-gradient(0deg, rgba(0,0,0,0.75), transparent); }
 .call-actions { display: flex; gap: 8px; justify-content: center; margin-bottom: 10px; }
-.call-actions button { padding: 7px 12px; border-radius: 999px; background: rgba(255,255,255,0.12); font-size: 13px; font-style: italic; }
+.call-actions button { padding: 7px 12px; border-radius: 999px; background: rgba(255,255,255,0.12); font-size: 13px; }
 .call-row { display: flex; gap: 8px; }
 .call-input { flex: 1; display: flex; gap: 8px; min-width: 0; }
 .call-input input { flex: 1; min-width: 0; padding: 12px 16px; border-radius: 999px; border: 1px solid rgba(255,255,255,0.2); background: rgba(0,0,0,0.45); font-size: 16px; }
 .call-input button { padding: 0 16px; border-radius: 999px; background: rgba(255,255,255,0.16); font-weight: 600; }
 .call-hangup { padding: 0 18px; border-radius: 999px; background: #c0392b; font-weight: 600; }
+
+.profile { height: 100dvh; overflow: auto; padding: 0 20px calc(28px + env(safe-area-inset-bottom)); }
+.profile-top { display: flex; align-items: center; gap: 12px; padding: calc(12px + env(safe-area-inset-top)) 0 12px; position: sticky; top: 0; background: var(--bg); z-index: 2; }
+.profile-top strong { font-family: var(--serif); font-size: 22px; }
+.profile-hero img { width: 100%; height: 240px; object-fit: cover; object-position: center 18%; border-radius: 18px; }
+.profile h1 { font-family: var(--serif); font-weight: 500; font-size: 28px; line-height: 1.15; margin: 14px 0 6px; }
+.profile h2 { margin: 26px 0 10px; color: var(--gold); font-size: 12px; letter-spacing: 0.16em; text-transform: uppercase; }
+.profile p, .profile li { line-height: 1.45; font-size: 15px; }
+.profile-connection { display: flex; flex-direction: column; gap: 4px; margin-top: 12px; }
+.profile-connection span, .profile-next, .secret-list em, .chapter-list em { color: var(--muted); font-size: 13px; }
+.secret-list, .chapter-list, .memory-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 10px; }
+.secret-list li, .memory-list li { padding: 12px 14px; border: 1px solid var(--line); border-radius: 14px; display: flex; flex-direction: column; gap: 4px; }
+.chapter-list li { padding: 12px 14px; border: 1px solid var(--line); border-radius: 14px; display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.chapter-list button, .memory-list button, .define button { color: var(--gold); padding: 0; }
+.profile label { display: flex; gap: 10px; align-items: center; margin: 10px 0; }
+.define { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; margin-top: 12px; }
 
 @keyframes rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 @keyframes fade { from { opacity: 0; } to { opacity: 1; } }

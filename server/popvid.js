@@ -40,13 +40,13 @@ function authHeaders() {
   return { Authorization: `Bearer ${KEY}`, "Content-Type": "application/json" };
 }
 
-export function buildSessionBody({ messages, seedImageUrl, voiceRefUrl }) {
-  const character = { name: PERSONA.name, prompt: videoCharacterPrompt() };
+export function buildSessionBody({ messages, seedImageUrl, voiceRefUrl, characterPrompt, scenePrompt }) {
+  const character = { name: PERSONA.name, prompt: characterPrompt || videoCharacterPrompt() };
   if (voiceRefUrl) character.voice_ref_url = voiceRefUrl;
   const body = {
     model: "r2-realtime-v1",
     character,
-    scene: { prompt: videoScenePrompt() },
+    scene: { prompt: scenePrompt || videoScenePrompt() },
     language: "en",
     history: toPopvidHistory(messages),
     limits: { max_turns: 200, turn_rate_per_min: 20 },
@@ -74,7 +74,7 @@ async function postConnection(body) {
   }
 }
 
-export async function createCall({ messages, req }) {
+export async function createCall({ messages, req, characterPrompt, scenePrompt }) {
   if (!KEY) {
     return { ok: false, status: 503, error: { code: "misconfigured", message: "Video is not configured." } };
   }
@@ -86,11 +86,11 @@ export async function createCall({ messages, req }) {
   try {
     let result;
     try {
-      result = await postConnection(buildSessionBody({ messages, seedImageUrl: seedUrl(req), voiceRefUrl: VOICE_REF_URL }));
+      result = await postConnection(buildSessionBody({ messages, seedImageUrl: seedUrl(req), voiceRefUrl: VOICE_REF_URL, characterPrompt, scenePrompt }));
       const code = result.data?.error?.code;
       if (!result.ok && !["no_capacity", "unauthorized", "budget_exhausted"].includes(code)) {
         console.warn("[call] retrying without seed after", result.status, code);
-        result = await postConnection(buildSessionBody({ messages, seedImageUrl: null, voiceRefUrl: VOICE_REF_URL }));
+        result = await postConnection(buildSessionBody({ messages, seedImageUrl: null, voiceRefUrl: VOICE_REF_URL, characterPrompt, scenePrompt }));
       }
     } catch (err) {
       console.error("[call] PopVid unreachable", err);

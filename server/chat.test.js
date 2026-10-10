@@ -38,12 +38,10 @@ test("marks an empty reply as retryable", () => {
   assert.deepEqual(parseModelOutput('{"reply":""}'), { reply: FALLBACK_REPLY, call: false, quickReplies: [], retryable: true });
 });
 
-test("call decision rules", () => {
-  assert.equal(decideCall({ modelWantsCall: true, userTurns: 2, calledOnce: false, event: null }), true);
-  assert.equal(decideCall({ modelWantsCall: false, userTurns: 5, calledOnce: false, event: null }), false);
-  assert.equal(decideCall({ modelWantsCall: false, userTurns: 6, calledOnce: false, event: null }), true);
-  assert.equal(decideCall({ modelWantsCall: true, userTurns: 6, calledOnce: true, event: null }), false);
-  assert.equal(decideCall({ modelWantsCall: true, userTurns: 3, calledOnce: false, event: "call_ended" }), false);
+test("call decision follows her request, not a turn count", () => {
+  assert.equal(decideCall({ userAsked: true, event: null }), true);
+  assert.equal(decideCall({ userAsked: false, event: null }), false);
+  assert.equal(decideCall({ userAsked: true, event: "call_ended" }), false);
 });
 
 test("sends the system prompt and history without JSON mode", async () => {
@@ -85,16 +83,18 @@ test("still returns the reply when the chip follow-up fails", async (t) => {
   assert.equal(result.retryable, undefined);
 });
 
-test("forces the call on the sixth user message", async () => {
-  const { impl } = fakeFetch(['{"reply":"Pick up.","call":false}']);
+test("does not force a call on the sixth user message", async () => {
+  const { impl } = fakeFetch(['{"reply":"Stay.","call":true}']);
   const result = await generateReply({ messages: turns(6), fetchImpl: impl, env });
-  assert.equal(result.call, true);
+  assert.equal(result.call, false);
 });
 
-test("never calls twice", async () => {
-  const { impl } = fakeFetch(['{"reply":"Pick up.","call":true}']);
-  const result = await generateReply({ messages: turns(6), calledOnce: true, fetchImpl: impl, env });
-  assert.equal(result.call, false);
+test("offers a call when she asks to see him", async () => {
+  const messages = turns(1);
+  messages.push(msg("user", "I want to see you"));
+  const { impl } = fakeFetch(['{"reply":"Then look.","call":false}']);
+  const result = await generateReply({ messages, fetchImpl: impl, env });
+  assert.equal(result.call, true);
 });
 
 test("appends a stage note for call events", async () => {
